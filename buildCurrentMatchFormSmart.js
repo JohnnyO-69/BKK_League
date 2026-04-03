@@ -1,16 +1,24 @@
 /********************************************************************
- *     MATCH FORM V2 – WITH FORMATTING SIMILAR TO LAST 3 FORM
+ *     MATCH FORM – CANONICAL CURRENT IMPLEMENTATION
  ********************************************************************/
-function buildCurrentMatchFormSmartV2() {
+function buildCurrentMatchFormSmart() {
   const ss = getLeagueSpreadsheet_();
   const fixturesSheet = ss.getSheetByName('Fixtures');
   const paramsSheet = ss.getSheetByName('Parameters');
   if (!fixturesSheet) return;
   if (!paramsSheet) return;
 
-  const outName = 'CurrentMatchFormV2';
-  let out = ss.getSheetByName(outName);
-  if (!out) out = ss.insertSheet(outName);
+  const canonicalOutName = 'CurrentMatchForm';
+  const legacyOutName = 'CurrentMatchFormV2';
+  let out = ss.getSheetByName(canonicalOutName);
+  if (!out) {
+    out = ss.getSheetByName(legacyOutName);
+    if (out) {
+      out.setName(canonicalOutName);
+    } else {
+      out = ss.insertSheet(canonicalOutName);
+    }
+  }
 
   // Only clear values, preserve formatting
   out.getDataRange().clearContent();
@@ -23,12 +31,10 @@ function buildCurrentMatchFormSmartV2() {
     return;
   }
 
-  // Thailand timezone "today"
   const today = new Date(
     new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok' })
   );
 
-  // Load fixtures
   const values = fixturesSheet.getDataRange().getValues();
   const header = values.shift();
 
@@ -39,30 +45,28 @@ function buildCurrentMatchFormSmartV2() {
 
   if ([idxMatchId, idxHome, idxAway, idxDate].some(i => i < 0)) return;
 
-  function toDate(v) {
-    return v instanceof Date ? v : new Date(String(v || '').trim());
+  function toDate(value) {
+    return value instanceof Date ? value : new Date(String(value || '').trim());
   }
 
-  // All matches involving The Game 8B
   const matches = values
-    .filter(r => (r[idxHome] === teamName || r[idxAway] === teamName) && r[idxMatchId])
-    .map(r => ({
-      id: r[idxMatchId],
-      date: toDate(r[idxDate]),
-      home: r[idxHome],
-      away: r[idxAway]
+    .filter(row => (row[idxHome] === teamName || row[idxAway] === teamName) && row[idxMatchId])
+    .map(row => ({
+      id: row[idxMatchId],
+      date: toDate(row[idxDate]),
+      home: row[idxHome],
+      away: row[idxAway]
     }))
-    .filter(m => !isNaN(m.date.getTime()))
-    .sort((a, b) => a.date - b.date);
+    .filter(match => !isNaN(match.date.getTime()))
+    .sort((left, right) => left.date - right.date);
 
   if (!matches.length) {
     out.getRange('A1').setValue(`No matches found for ${teamName}`);
     return;
   }
 
-  // Split past and future
-  const past = matches.filter(m => m.date <= today);
-  const future = matches.filter(m => m.date > today);
+  const past = matches.filter(match => match.date <= today);
+  const future = matches.filter(match => match.date > today);
 
   let chosen;
 
@@ -78,11 +82,10 @@ function buildCurrentMatchFormSmartV2() {
   const isHome = chosen.home === teamName;
   const opponent = isHome ? chosen.away : chosen.home;
 
-  // Fetch match frames
   function fetchJson(url) {
     try {
-      const res = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
-      return res.getResponseCode() === 200 ? JSON.parse(res.getContentText()) : null;
+      const response = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+      return response.getResponseCode() === 200 ? JSON.parse(response.getContentText()) : null;
     } catch {
       return null;
     }
@@ -109,100 +112,90 @@ function buildCurrentMatchFormSmartV2() {
       };
     }
 
-    const s = stats[player];
+    const playerStats = stats[player];
 
     if (isDouble) {
-      s.doublesPlayed++;
+      playerStats.doublesPlayed++;
       if (won) {
-        s.doublesWon++;
-        s.points += 0.5;
+        playerStats.doublesWon++;
+        playerStats.points += 0.5;
       }
     } else {
-      s.singlesPlayed++;
+      playerStats.singlesPlayed++;
       if (won) {
-        s.singlesWon++;
-        s.points += 1;
+        playerStats.singlesWon++;
+        playerStats.points += 1;
       }
     }
   }
 
-  // Process frames and calculate scores
   let homeFrames = 0;
-  matchJson.data.forEach(f => {
-    const hp = (f.homePlayers || []).map(p => p.nickName || p.nickname || '').filter(Boolean);
-    const ap = (f.awayPlayers || []).map(p => p.nickName || p.nickname || '').filter(Boolean);
+  matchJson.data.forEach(frame => {
+    const homePlayers = (frame.homePlayers || []).map(player => player.nickName || player.nickname || '').filter(Boolean);
+    const awayPlayers = (frame.awayPlayers || []).map(player => player.nickName || player.nickname || '').filter(Boolean);
 
-    const isDouble = hp.length > 1;
-    const homeWon = f.homeWin === 1;
+    const isDouble = homePlayers.length > 1;
+    const homeWon = frame.homeWin === 1;
 
-    const homeId = f.homeTeamId || f.home_team_id || f.homeTeamid;
-    const awayId = f.awayTeamId || f.away_team_id || f.awayTeamid;
+    const homeId = frame.homeTeamId || frame.home_team_id || frame.homeTeamid;
+    const awayId = frame.awayTeamId || frame.away_team_id || frame.awayTeamid;
 
     const ourHome = String(homeId) === String(teamId);
     const ourAway = String(awayId) === String(teamId);
 
     if (!ourHome && !ourAway) return;
 
-    const ourPlayers = ourHome ? hp : ap;
+    const ourPlayers = ourHome ? homePlayers : awayPlayers;
     const won = ourHome ? homeWon : !homeWon;
 
-    ourPlayers.forEach(p => addStat(p, isDouble, won));
+    ourPlayers.forEach(player => addStat(player, isDouble, won));
 
-    if (f.homeWin !== undefined) {  // Assume only count decided frames
-      if (homeWon) homeFrames++;
+    if (frame.homeWin !== undefined && homeWon) {
+      homeFrames++;
     }
   });
 
-  let decidedFrames = matchJson.data.filter(f => f.homeWin !== undefined).length;
-  let awayFrames = decidedFrames - homeFrames;
+  const decidedFrames = matchJson.data.filter(frame => frame.homeWin !== undefined).length;
+  const awayFrames = decidedFrames - homeFrames;
+  const ourScore = isHome ? homeFrames : awayFrames;
+  const opponentScore = isHome ? awayFrames : homeFrames;
+  const result = ourScore > opponentScore ? ' W' : ourScore === opponentScore ? ' D' : ' L';
 
-  const weHome = isHome;
-  const ourScore = weHome ? homeFrames : awayFrames;
-  const oppScore = weHome ? awayFrames : homeFrames;
-  const res = ourScore > oppScore ? ' W' : ourScore === oppScore ? ' D' : ' L';
+  const matchSummary = decidedFrames > 0
+    ? `Match ID: ${matchId} • ${opponent} (${ourScore}-${opponentScore})${result}`
+    : `Match ID: ${matchId} • vs ${opponent}`;
 
-  let matchStr;
-  if (decidedFrames > 0) {
-    matchStr = `Match ID: ${matchId} • ${opponent} (${ourScore}-${oppScore})${res}`;
-  } else {
-    matchStr = `Match ID: ${matchId} • vs ${opponent}`;
-  }
-
-  // Build rows
-  const rows = Object.entries(stats).map(([name, s]) => {
-    const totalGames = s.singlesPlayed + s.doublesPlayed;
-    const singlesPct = s.singlesPlayed ? s.singlesWon / s.singlesPlayed : 0;
-    const doublesPct = s.doublesPlayed ? s.doublesWon / s.doublesPlayed : 0;
-    const ppg = totalGames ? s.points / totalGames : 0;
+  const rows = Object.entries(stats).map(([name, playerStats]) => {
+    const totalGames = playerStats.singlesPlayed + playerStats.doublesPlayed;
+    const singlesPct = playerStats.singlesPlayed ? playerStats.singlesWon / playerStats.singlesPlayed : 0;
+    const doublesPct = playerStats.doublesPlayed ? playerStats.doublesWon / playerStats.doublesPlayed : 0;
+    const ppg = totalGames ? playerStats.points / totalGames : 0;
 
     return [
       name,
       totalGames,
-      s.singlesPlayed,
-      s.singlesWon,
+      playerStats.singlesPlayed,
+      playerStats.singlesWon,
       singlesPct,
-      s.doublesPlayed,
-      s.doublesWon,
+      playerStats.doublesPlayed,
+      playerStats.doublesWon,
       doublesPct,
-      s.points,
+      playerStats.points,
       ppg
     ];
   });
 
-  // Sort by PPG, then points, then games, then name
-  rows.sort((a, b) => {
-    if (b[9] !== a[9]) return b[9] - a[9];
-    if (b[8] !== a[8]) return b[8] - a[8];
-    if (b[1] !== a[1]) return b[1] - a[1];
-    return a[0].localeCompare(b[0]);
+  rows.sort((left, right) => {
+    if (right[9] !== left[9]) return right[9] - left[9];
+    if (right[8] !== left[8]) return right[8] - left[8];
+    if (right[1] !== left[1]) return right[1] - left[1];
+    return left[0].localeCompare(right[0]);
   });
 
   const totalCols = 10;
   const thaiDate = matchDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
-  const now = new Date();
-  const nowStr = now.toLocaleString('en-GB', { timeZone: 'Asia/Bangkok' });
+  const nowStr = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Bangkok' });
 
-  // === PERFECT HEADER BLOCK WITH SIMILAR COLORS ===
   out.getRange(1, 1, 1, totalCols).merge().setValue(
     'Match Form – ' + (isHome ? teamName + ' vs ' + opponent : opponent + ' vs ' + teamName)
   ).setFontWeight('bold').setFontSize(14).setBackground('#4285f4').setFontColor('white')
@@ -214,10 +207,9 @@ function buildCurrentMatchFormSmartV2() {
   out.getRange(3, 1, 1, totalCols).merge().setValue(`Last Refresh: ${nowStr}`)
     .setFontStyle('italic').setFontColor('#666').setHorizontalAlignment('center').setVerticalAlignment('middle');
 
-  out.getRange(4, 1, 1, totalCols).merge().setValue(matchStr)
+  out.getRange(4, 1, 1, totalCols).merge().setValue(matchSummary)
     .setFontWeight('bold').setFontColor('#333').setHorizontalAlignment('center').setVerticalAlignment('middle');
 
-  // Column headers row 6 (skip row 5 like in Last3Form)
   const colHeaders = [
     'Player',
     'Games Played',
@@ -234,39 +226,36 @@ function buildCurrentMatchFormSmartV2() {
   out.getRange(6, 1, 1, totalCols).setValues([colHeaders])
     .setFontWeight('bold').setBackground('#d9ead3').setHorizontalAlignment('center').setWrap(true);
 
-  // Data rows from row 7
   if (rows.length) {
     out.getRange(7, 1, rows.length, totalCols).setValues(rows);
 
     out.getRange(7, 5, rows.length, 1).setNumberFormat('0.0%');
     out.getRange(7, 8, rows.length, 1).setNumberFormat('0.0%');
     out.getRange(7, 10, rows.length, 1).setNumberFormat('0.00');
-
     out.getRange(7, 2, rows.length, 9).setHorizontalAlignment('center');
   } else {
     out.getRange(7, 1).setValue('No player stats available');
   }
 
-  for (let i = 1; i <= totalCols; i++) out.setColumnWidth(i, 100);
+  for (let column = 1; column <= totalCols; column++) out.setColumnWidth(column, 100);
   const lastRow = rows.length ? rows.length + 6 : 8;
   out.getRange(1, 1, lastRow, totalCols).setBorder(true, true, true, true, true, true);
 }
 
-function handleCurrentMatchFormV2Edit_(e) {
+function handleCurrentMatchFormEdit_(e) {
   if (!e) return;
 
   const range = e.range;
   const sheet = range.getSheet();
+  const sheetName = sheet.getName();
 
-  Logger.log('Edited sheet: ' + sheet.getName() + ', range: ' + range.getA1Notation());
+  Logger.log('Edited sheet: ' + sheetName + ', range: ' + range.getA1Notation());
 
-  if (sheet.getName() === 'CurrentMatchFormV2' &&
+  if ((sheetName === 'CurrentMatchForm' || sheetName === 'CurrentMatchFormV2') &&
       range.getRow() === 18 &&
       range.getColumn() === 1) {
 
-    buildCurrentMatchFormSmartV2();
-
-    // Clear the trigger cell text only
     sheet.getRange('A18').clearContent();
+    buildCurrentMatchFormSmart();
   }
 }

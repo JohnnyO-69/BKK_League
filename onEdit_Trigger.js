@@ -5,5 +5,5 @@ function onEdit(e) {
 function onEdit_Trigger(e) {
   if (!e) return;
 
-  handleCurrentMatchFormV2Edit_(e);
+  handleCurrentMatchFormEdit_(e);
 }

@@ -5,9 +5,9 @@ These files were archived locally to keep them in the repository and Git history
 ## Archived Files
 
 - `buildCurrentMatchFormSmart.js`
-  - Archived because `buildCurrentMatchFormSmartV2.js` is the active current-match implementation in the deployable source set.
-  - The old version was hardcoded to `The Game 8B` and team ID `2327`, while V2 reads team configuration from `Parameters!F7:F8`.
-  - After trigger consolidation, no remaining active deployable callers required the old implementation.
+  - Archived because the active current-match implementation was promoted into the canonical root `buildCurrentMatchFormSmart.js` path.
+  - This archived version was hardcoded to `The Game 8B` and team ID `2327`, while the active implementation reads team configuration from `Parameters!F7:F8`.
+  - After trigger consolidation and final cleanup, no remaining active deployable callers required this legacy implementation.
 
 - `buildSeasonForm.js`
   - Archived because the active workflow uses `buildSeasonFormForTeam.js`.
