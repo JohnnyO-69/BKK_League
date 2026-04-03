@@ -1,0 +1,13 @@
+**/**
+!*.js
+!appsscript.json
+
+_repo_analysis/**
+Google_Apps_Scripts/**
+archive/**
+node_modules/**
+.vscode/**
+*.md
+*.json
+!.clasp.json
+!appsscript.json

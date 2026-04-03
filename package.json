@@ -1,0 +1,21 @@
+{
+  "name": "bkk-league-apps-script",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Local source control and deployment tooling for the Bangkok Pool League Google Apps Script project.",
+  "scripts": {
+    "clasp:login": "clasp login",
+    "clasp:logout": "clasp logout",
+    "clasp:status": "clasp status",
+    "clasp:push": "clasp push",
+    "clasp:pull": "clasp pull",
+    "clasp:open": "clasp open",
+    "clasp:version": "clasp versions",
+    "clasp:deployments": "clasp deployments",
+    "verify:source": "node scripts/verify-source-of-truth.js",
+    "sync:check": "npm run verify:source && npm run clasp:status"
+  },
+  "devDependencies": {
+    "@google/clasp": "^3.3.0"
+  }
+}

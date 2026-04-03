@@ -1,0 +1,85 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "verify: source",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "verify:source"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "sync: check",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "sync:check"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "clasp: status",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "clasp:status"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "clasp: login",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "clasp:login"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "clasp: pull",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "clasp:pull"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "clasp: push",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "clasp:push"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "clasp: deployments",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "clasp:deployments"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "clasp: open",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "clasp:open"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}
