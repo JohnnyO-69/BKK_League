@@ -1,7 +1,7 @@
 function buildSeasonForm() {
   console.log('START buildSeasonForm');
 
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = getLeagueSpreadsheet_();
   const fixturesSheet = ss.getSheetByName('Fixtures');
   const paramsSheet = ss.getSheetByName('Parameters');
   if (!fixturesSheet) {
