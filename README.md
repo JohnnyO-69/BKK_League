@@ -39,26 +39,26 @@ The current core flow is built around these functions:
 - `buildSeasonFormForTeam()` in `buildSeasonFormForTeam.js`
 - `buildMyTeamOOP()` in `buildMyTeamOOP.js`
 - `buildNextTeamOOP()` in `buildNextTeamOOP.js`
+- `buildCurrentMatchFormSmartV2()` in `buildCurrentMatchFormSmartV2.js`
 - `refreshPrediction()` in `refreshPrediction.js`
 
 ## Trigger Design
 
 Current edit-trigger behavior is centralized in `onEdit_Trigger.js`.
 
-The current-match builders remain separate:
+The active current-match builder is:
 
-- `buildCurrentMatchFormSmart()` in `buildCurrentMatchFormSmart.js`
 - `buildCurrentMatchFormSmartV2()` in `buildCurrentMatchFormSmartV2.js`
 
 The trigger file provides:
 
 - a global `onEdit(e)` simple trigger
 - `onEdit_Trigger(e)` as the shared dispatcher
-- sheet-specific helpers delegated to the current-match files
+- a dispatch to the V2 current-match refresh helper
 
 This avoids conflicting global `onEdit(e)` definitions in Apps Script's shared global namespace.
 
-The remaining product decision is whether both `CurrentMatchForm` and `CurrentMatchFormV2` should continue to exist long term, not how the trigger is wired.
+The previous non-V2 implementation was archived because it was hardcoded to a specific team and had no remaining in-repo callers once trigger handling was centralized.
 
 ## Local Workflow
 
