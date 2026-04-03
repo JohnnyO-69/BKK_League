@@ -41,21 +41,24 @@ The current core flow is built around these functions:
 - `buildNextTeamOOP()` in `buildNextTeamOOP.js`
 - `refreshPrediction()` in `refreshPrediction.js`
 
-## Current Ambiguity
+## Trigger Design
 
-The current-match area still needs a final rationalization.
+Current edit-trigger behavior is centralized in `onEdit_Trigger.js`.
 
-Currently present:
+The current-match builders remain separate:
 
 - `buildCurrentMatchFormSmart()` in `buildCurrentMatchFormSmart.js`
 - `buildCurrentMatchFormSmartV2()` in `buildCurrentMatchFormSmartV2.js`
-- `onEdit_Trigger()` in `onEdit_Trigger.js`
-- a global `onEdit(e)` in `buildCurrentMatchFormSmart.js`
-- a global `onEdit(e)` in `buildCurrentMatchFormSmartV2.js`
 
-Because Apps Script uses a shared global namespace, only one `onEdit(e)` implementation should ultimately survive in production.
+The trigger file provides:
 
-Do not remove any of these trigger-related files without first choosing the canonical current-match path.
+- a global `onEdit(e)` simple trigger
+- `onEdit_Trigger(e)` as the shared dispatcher
+- sheet-specific helpers delegated to the current-match files
+
+This avoids conflicting global `onEdit(e)` definitions in Apps Script's shared global namespace.
+
+The remaining product decision is whether both `CurrentMatchForm` and `CurrentMatchFormV2` should continue to exist long term, not how the trigger is wired.
 
 ## Local Workflow
 

@@ -229,14 +229,12 @@ function buildCurrentMatchFormSmart() {
   out.getRange(1, 1, lastRow, 10).setBorder(true, true, true, true, true, true);
 }
 
-// onEdit trigger for A18 in CurrentMatchForm
-function onEdit(e) {
+function handleCurrentMatchFormEdit_(e) {
   if (!e) return;
 
   const range = e.range;
   const sheet = range.getSheet();
 
-  // Debug log so you can see what is being edited if needed
   Logger.log('Edited sheet: ' + sheet.getName() + ', range: ' + range.getA1Notation());
 
   if (sheet.getName() === 'CurrentMatchForm' &&
