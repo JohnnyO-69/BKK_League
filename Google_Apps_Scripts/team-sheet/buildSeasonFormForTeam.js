@@ -80,6 +80,7 @@ function buildSeasonFormForTeam(teamId, teamName, outputSheetName) {
 
   // === PLAYER STATS (unchanged) ===
   const playerMatches = {};
+  const frameCache = {};
 
   const fetchJson = url => {
     try {
@@ -105,6 +106,7 @@ function buildSeasonFormForTeam(teamId, teamName, outputSheetName) {
       Utilities.sleep(delayMs);
       return;
     }
+    frameCache[m.id] = json.data;
     json.data.forEach(f => {
       const hp = (f.homePlayers || []).map(p => p.nickName || p.nickname || '').filter(Boolean);
       const ap = (f.awayPlayers || []).map(p => p.nickName || p.nickname || '').filter(Boolean);
@@ -209,4 +211,6 @@ function buildSeasonFormForTeam(teamId, teamName, outputSheetName) {
   for (let i = 1; i <= totalCols; i++) out.setColumnWidth(i, i === 2 ? 80 : 100);
   const lastRow = rows.length ? rows.length + 7 : 9;
   out.getRange(1, 1, lastRow, totalCols).setBorder(true, true, true, true, true, true);
+
+  return frameCache;
 }

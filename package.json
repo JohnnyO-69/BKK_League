@@ -6,14 +6,19 @@
   "scripts": {
     "clasp:login": "clasp login",
     "clasp:logout": "clasp logout",
-    "clasp:status": "clasp status",
-    "clasp:push": "clasp push",
-    "clasp:pull": "clasp pull",
-    "clasp:open": "clasp open",
-    "clasp:version": "clasp versions",
-    "clasp:deployments": "clasp deployments",
+    "clasp:push": "npm run clasp:push:data && npm run clasp:push:team",
+    "clasp:push:data": "cd Google_Apps_Scripts/bkk-league-data && clasp push",
+    "clasp:push:team": "cd Google_Apps_Scripts/team-sheet && clasp push",
+    "clasp:pull:data": "cd Google_Apps_Scripts/bkk-league-data && clasp pull",
+    "clasp:pull:team": "cd Google_Apps_Scripts/team-sheet && clasp pull",
+    "clasp:open:data": "cd Google_Apps_Scripts/bkk-league-data && clasp open",
+    "clasp:open:team": "cd Google_Apps_Scripts/team-sheet && clasp open",
+    "clasp:status:data": "cd Google_Apps_Scripts/bkk-league-data && clasp status",
+    "clasp:status:team": "cd Google_Apps_Scripts/team-sheet && clasp status",
+    "clasp:deployments:data": "cd Google_Apps_Scripts/bkk-league-data && clasp deployments",
+    "clasp:deployments:team": "cd Google_Apps_Scripts/team-sheet && clasp deployments",
     "verify:source": "node scripts/verify-source-of-truth.js",
-    "sync:check": "npm run verify:source && npm run clasp:status"
+    "sync:check": "npm run verify:source && npm run clasp:status:data && npm run clasp:status:team"
   },
   "devDependencies": {
     "@google/clasp": "^3.3.0"

@@ -21,8 +21,9 @@ function buildMyTeamForm() {
   }
 
   buildLast3FormForTeam(teamId, teamName, 'Last3MatchForm');
-  buildSeasonFormForTeam(teamId, teamName, 'SeasonForm');
+  const frameCache = buildSeasonFormForTeam(teamId, teamName, 'SeasonForm');
   buildMyTeamOOP();
+  buildMyTeamPairings(frameCache);
 
   console.log('END buildMyTeamForm');
 }
