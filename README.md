@@ -13,18 +13,23 @@ This repo manages:
 
 This repo does not version spreadsheet data or formatting unless scripts recreate those elements.
 
-## Linked Apps Script Project
+## Linked Apps Script Projects
 
-- Script ID: `1CWO4vZaW5FTQ9yRjghI4zg3yryKUt0jgW-y7tT8lLHxffNSA3Hg31vKl`
+- BKK League Data: `1gP5BJz1Lpz3-XLQmiKYIi_y0nARwfpED8zjoyhK6gO1OgBAvtYllamCt`
+- Team Sheet: `1CWO4vZaW5FTQ9yRjghI4zg3yryKUt0jgW-y7tT8lLHxffNSA3Hg31vKl`
 
-## Target Spreadsheet
+## Target Spreadsheets
 
-- Spreadsheet ID: `1Kcv1y5bQX8YGxnIIXyKYj5QkcQQO_qBO5Zcvt6lSMAU`
-- Config source: `projectConfig.js`
+- BKK League Data spreadsheet: `1Kcv1y5bQX8YGxnIIXyKYj5QkcQQO_qBO5Zcvt6lSMAU`
+- Team Sheet spreadsheet: `1zz1rk8E_r3dDxkMUR1_30igrPXKVZu7ju0SkRMaYJf4`
+- Config source: `projectConfig.js` in each project folder
 
 ## Canonical Deployable Source
 
-The deployable Apps Script source is the root `*.js` file set plus `appsscript.json`.
+The deployable Apps Script source lives under:
+
+- `Google_Apps_Scripts/bkk-league-data/`
+- `Google_Apps_Scripts/team-sheet/`
 
 Archived or deprecated scripts are kept under `archive/` and are not part of the production deployment set.
 
@@ -33,6 +38,7 @@ Archived or deprecated scripts are kept under `archive/` and are not part of the
 The current core flow is built around these functions:
 
 - `fetchDivision8BBFixtures()` in `fetchFixtures.js`
+- `fetchAllBKKLeagueData()` in `fetchFixtures.js` as a compatibility alias for legacy triggers
 - `buildMyTeamForm()` in `buildMyTeamForm.js`
 - `buildNextTeamForm()` in `buildNextTeamForm.js`
 - `buildLast3FormForTeam()` in `buildLast3FormForTeam.js`
@@ -80,6 +86,13 @@ Push Apps Script code:
 npm run clasp:push
 ```
 
+Push only one project:
+
+```powershell
+npm run clasp:push:data
+npm run clasp:push:team
+```
+
 Pull Apps Script code:
 
 ```powershell
@@ -106,3 +119,12 @@ They are:
 - not production deployable
 - not part of the canonical active source set
 - available for recovery, comparison, or audit
+
+## Fixtures Refresh Rule
+
+Both script projects keep a local `fetchFixtures.js` because both spreadsheets read their own `Fixtures` tab.
+
+- `Google_Apps_Scripts/bkk-league-data/fetchFixtures.js`
+- `Google_Apps_Scripts/team-sheet/fetchFixtures.js`
+
+`npm run verify:source` now fails if those two files drift apart.

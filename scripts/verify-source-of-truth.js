@@ -2,6 +2,11 @@ const fs = require('fs');
 const path = require('path');
 
 const workspaceRoot = path.resolve(__dirname, '..');
+const normalizeText = value => value.replace(/\r\n/g, '\n');
+const sharedFetchPaths = [
+  path.join(workspaceRoot, 'Google_Apps_Scripts', 'bkk-league-data', 'fetchFixtures.js'),
+  path.join(workspaceRoot, 'Google_Apps_Scripts', 'team-sheet', 'fetchFixtures.js')
+];
 
 const PROJECTS = {
   'bkk-league-data': {
@@ -11,8 +16,8 @@ const PROJECTS = {
   },
   'team-sheet': {
     folder: path.join(workspaceRoot, 'Google_Apps_Scripts', 'team-sheet'),
-    required: ['appsscript.json', 'projectConfig.js', 'onEdit_Trigger.js', 'refreshPrediction.js'],
-    forbidden: ['fetchFixtures.js']
+    required: ['appsscript.json', 'projectConfig.js', 'fetchFixtures.js', 'onEdit_Trigger.js', 'refreshPrediction.js'],
+    forbidden: []
   }
 };
 
@@ -56,6 +61,21 @@ for (const [name, config] of Object.entries(PROJECTS)) {
 
   const jsFiles = files.filter(f => f.endsWith('.js')).sort();
   console.log(`[${name}] Deployable files (${jsFiles.length}): ${jsFiles.join(', ')}`);
+}
+
+const existingSharedFetchPaths = sharedFetchPaths.filter(fs.existsSync);
+if (existingSharedFetchPaths.length === sharedFetchPaths.length) {
+  const [canonicalFetchPath, ...otherFetchPaths] = sharedFetchPaths;
+  const canonicalFetch = normalizeText(fs.readFileSync(canonicalFetchPath, 'utf8'));
+
+  otherFetchPaths.forEach(fetchPath => {
+    const currentFetch = normalizeText(fs.readFileSync(fetchPath, 'utf8'));
+    if (currentFetch !== canonicalFetch) {
+      problems.push(
+        `[shared] fetchFixtures.js mismatch: ${path.relative(workspaceRoot, fetchPath)} must match ${path.relative(workspaceRoot, canonicalFetchPath)}`
+      );
+    }
+  });
 }
 
 if (problems.length > 0) {

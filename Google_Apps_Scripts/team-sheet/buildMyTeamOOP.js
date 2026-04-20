@@ -2,6 +2,7 @@ function buildMyTeamOOP() {
   const ss = getLeagueSpreadsheet_();
   const source = ss.getSheetByName('Last3MatchForm');
   const paramsSheet = ss.getSheetByName('Parameters');
+  const gameTemplate = getMyTeamOOPGameTemplateSheet_(ss);
   if (!source) return;
   if (!paramsSheet) return;
 
@@ -20,9 +21,14 @@ function buildMyTeamOOP() {
     return;
   }
 
-  const playerPool = buildMyTeamOOPVisiblePlayerPool_(source, headerMap);
+  if (!gameTemplate) {
+    out.getRange('A1').setValue('Could not find Game Template sheet');
+    return;
+  }
+
+  const playerPool = buildMyTeamOOPVisiblePlayerPool_(source, headerMap, gameTemplate);
   if (!playerPool.length) {
-    out.getRange('A1').setValue('No visible filtered players found in Last3MatchForm A7:A19');
+    out.getRange('A1').setValue('No matching players found for Game Template K2:K13');
     return;
   }
 
@@ -38,7 +44,7 @@ function buildMyTeamOOP() {
     .setFontColor('white');
 
   out.getRange('A2:H2').merge()
-    .setValue('Players derived from visible filtered rows in Last3MatchForm!A7:A19')
+    .setValue('Players sourced from Game Template!K2:K13')
     .setHorizontalAlignment('center')
     .setFontStyle('italic');
 
@@ -157,16 +163,27 @@ function buildMyTeamOOPHeaderMap_(headers) {
   };
 }
 
-function buildMyTeamOOPVisiblePlayerPool_(sheet, headerMap) {
+function buildMyTeamOOPVisiblePlayerPool_(sheet, headerMap, gameTemplate) {
+  const ktValues = gameTemplate.getRange('K2:K13').getDisplayValues();
+  const selectedEntries = ktValues
+    .map(row => String(row[0] || '').trim())
+    .filter(name => name)
+    .map(name => ({ rawName: name, normalizedName: buildMyTeamOOPNormalizeName_(name) }));
+  const selectedNames = new Set(selectedEntries.map(entry => entry.normalizedName));
+
   const rows = sheet.getRange(7, 1, 13, Math.min(sheet.getLastColumn(), 20)).getValues();
   const players = [];
+  const matchedNames = new Set();
 
   rows.forEach((row, index) => {
     const rowNumber = index + 7;
-    if (sheet.isRowHiddenByFilter(rowNumber) || sheet.isRowHiddenByUser(rowNumber)) return;
-
     const name = String(row[headerMap.player] || '').trim();
     if (!name) return;
+
+    const normalizedName = buildMyTeamOOPNormalizeName_(name);
+    if (!selectedNames.has(normalizedName)) return;
+
+    matchedNames.add(normalizedName);
 
     const singlesPlayed = buildMyTeamOOPToNumber_(row[headerMap.singlesPlayed]);
     const singlesWinPct = buildMyTeamOOPToPercent_(row[headerMap.singlesWinPct]);
@@ -190,7 +207,31 @@ function buildMyTeamOOPVisiblePlayerPool_(sheet, headerMap) {
       doublesWeight,
       combinedWeight: singlesWeight + doublesWeight,
       assignedSingles: 0,
-      assignedDoubles: 0
+      assignedDoubles: 0,
+      assignedSinglesByBlock: {},
+      assignedDoublesByBlock: {}
+    });
+  });
+
+  selectedEntries.forEach(entry => {
+    if (matchedNames.has(entry.normalizedName)) return;
+
+    players.push({
+      name: entry.rawName,
+      sourceRow: 'Game Template only',
+      singlesPlayed: 0,
+      singlesWinPct: 0,
+      doublesPlayed: 0,
+      doublesWinPct: 0,
+      ppg: 0,
+      points: 0,
+      singlesWeight: 0,
+      doublesWeight: 0,
+      combinedWeight: 0,
+      assignedSingles: 0,
+      assignedDoubles: 0,
+      assignedSinglesByBlock: {},
+      assignedDoublesByBlock: {}
     });
   });
 
@@ -212,12 +253,14 @@ function buildMyTeamOOPSuggestedLineup_(playerPool) {
 
   formats.forEach((format, index) => {
     const slot = index + 1;
+    const blockIndex = Math.floor(index / 4);
 
     if (format === 'Singles') {
-      const choice = buildMyTeamOOPChooseSingles_(playerPool, recentPlayers);
+      const choice = buildMyTeamOOPChooseSingles_(playerPool, recentPlayers, blockIndex);
       if (!choice) return;
 
       choice.player.assignedSingles += 1;
+      buildMyTeamOOPIncrementSinglesBlock_(choice.player, blockIndex);
       lineup.push({
         slot,
         format,
@@ -234,11 +277,12 @@ function buildMyTeamOOPSuggestedLineup_(playerPool) {
       return;
     }
 
-    const pairChoice = buildMyTeamOOPChooseDoubles_(playerPool, recentPlayers, recentPairs);
+    const pairChoice = buildMyTeamOOPChooseDoubles_(playerPool, recentPlayers, recentPairs, blockIndex);
     if (!pairChoice) return;
 
     pairChoice.players.forEach(player => {
       player.assignedDoubles += 1;
+      buildMyTeamOOPIncrementDoublesBlock_(player, blockIndex);
     });
 
     lineup.push({
@@ -259,11 +303,73 @@ function buildMyTeamOOPSuggestedLineup_(playerPool) {
     recentPairs.splice(2);
   });
 
+  buildMyTeamOOPEnsureSinglesCoverage_(lineup, playerPool);
   return lineup;
 }
 
-function buildMyTeamOOPChooseSingles_(playerPool, recentPlayers) {
+function buildMyTeamOOPEnsureSinglesCoverage_(lineup, playerPool) {
+  const singlesEntries = lineup.filter(item => item.format === 'Singles');
+  if (!singlesEntries.length) return;
+
+  const singlesByPlayer = new Map();
+  singlesEntries.forEach(item => {
+    singlesByPlayer.set(item.lineup, (singlesByPlayer.get(item.lineup) || 0) + 1);
+  });
+
+  const playerByName = new Map(playerPool.map(player => [player.name, player]));
+
+  const missingSinglesPlayers = playerPool.filter(player => (singlesByPlayer.get(player.name) || 0) === 0);
+
+  missingSinglesPlayers.forEach(player => {
+    const availableReplacementSlots = singlesEntries.filter(item => {
+      if ((singlesByPlayer.get(item.lineup) || 0) <= 1) return false;
+      const blockIndex = Math.floor((item.slot - 1) / 4);
+      return buildMyTeamOOPSinglesCountInBlock_(player, blockIndex) < 1;
+    });
+
+    const replacement = availableReplacementSlots
+      .sort((a, b) => a.score - b.score || a.slot - b.slot)[0];
+
+    if (!replacement) return;
+
+    const replacedPlayer = playerByName.get(replacement.lineup);
+    const replacementBlockIndex = Math.floor((replacement.slot - 1) / 4);
+
+    if (replacedPlayer && replacedPlayer.assignedSinglesByBlock) {
+      replacedPlayer.assignedSinglesByBlock[replacementBlockIndex] = Math.max(
+        0,
+        buildMyTeamOOPSinglesCountInBlock_(replacedPlayer, replacementBlockIndex) - 1
+      );
+    }
+
+    singlesByPlayer.set(replacement.lineup, (singlesByPlayer.get(replacement.lineup) || 1) - 1);
+
+    replacement.lineup = player.name;
+    replacement.score = player.singlesWeight;
+    replacement.singlesWeight = player.singlesWeight;
+    replacement.doublesWeight = player.doublesWeight;
+    replacement.ppg = player.ppg;
+    replacement.note = player.sourceRow === 'Game Template only'
+      ? 'Selected from Game Template; no Last3 history yet'
+      : 'Inserted to ensure every selected player appears in singles';
+
+    buildMyTeamOOPIncrementSinglesBlock_(player, replacementBlockIndex);
+    singlesByPlayer.set(player.name, (singlesByPlayer.get(player.name) || 0) + 1);
+  });
+
+  const assignedSinglesByName = new Map();
+  singlesEntries.forEach(item => {
+    assignedSinglesByName.set(item.lineup, (assignedSinglesByName.get(item.lineup) || 0) + 1);
+  });
+
+  playerPool.forEach(player => {
+    player.assignedSingles = assignedSinglesByName.get(player.name) || 0;
+  });
+}
+
+function buildMyTeamOOPChooseSingles_(playerPool, recentPlayers, blockIndex) {
   const candidates = playerPool
+    .filter(player => buildMyTeamOOPSinglesCountInBlock_(player, blockIndex) < 1)
     .map(player => {
       let score = player.singlesWeight;
       const mostRecent = recentPlayers[0] || [];
@@ -272,6 +378,7 @@ function buildMyTeamOOPChooseSingles_(playerPool, recentPlayers) {
       if (mostRecent.includes(player.name)) score -= 0.18;
       if (previous.includes(player.name)) score -= 0.08;
       score -= player.assignedSingles * 0.07;
+      if (buildMyTeamOOPTotalAssignments_(player) === 0) score += 0.45;
 
       return { player, score };
     })
@@ -280,13 +387,16 @@ function buildMyTeamOOPChooseSingles_(playerPool, recentPlayers) {
   return candidates[0] || null;
 }
 
-function buildMyTeamOOPChooseDoubles_(playerPool, recentPlayers, recentPairs) {
+function buildMyTeamOOPChooseDoubles_(playerPool, recentPlayers, recentPairs, blockIndex) {
   const pairs = [];
 
   for (let i = 0; i < playerPool.length; i++) {
     for (let j = i + 1; j < playerPool.length; j++) {
       const first = playerPool[i];
       const second = playerPool[j];
+      if (buildMyTeamOOPDoublesCountInBlock_(first, blockIndex) >= 2) continue;
+      if (buildMyTeamOOPDoublesCountInBlock_(second, blockIndex) >= 2) continue;
+
       const pairName = `${first.name} + ${second.name}`;
 
       let score = ((first.doublesWeight + second.doublesWeight) / 2) + ((first.ppg + second.ppg) / 2) * 0.15;
@@ -300,6 +410,8 @@ function buildMyTeamOOPChooseDoubles_(playerPool, recentPlayers, recentPairs) {
       score -= (first.assignedDoubles + second.assignedDoubles) * 0.04;
       if (recentPairs[0] === pairName) score -= 0.14;
       if (recentPairs[1] === pairName) score -= 0.06;
+      if (buildMyTeamOOPTotalAssignments_(first) === 0) score += 0.28;
+      if (buildMyTeamOOPTotalAssignments_(second) === 0) score += 0.28;
 
       pairs.push({
         players: [first, second],
@@ -323,4 +435,42 @@ function buildMyTeamOOPToPercent_(value) {
   const number = buildMyTeamOOPToNumber_(value);
   if (number > 1) return number / 100;
   return number;
+}
+
+function buildMyTeamOOPNormalizeName_(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+function buildMyTeamOOPTotalAssignments_(player) {
+  return Number(player.assignedSingles || 0) + Number(player.assignedDoubles || 0);
+}
+
+function buildMyTeamOOPSinglesCountInBlock_(player, blockIndex) {
+  const byBlock = player.assignedSinglesByBlock || {};
+  return Number(byBlock[blockIndex] || 0);
+}
+
+function buildMyTeamOOPDoublesCountInBlock_(player, blockIndex) {
+  const byBlock = player.assignedDoublesByBlock || {};
+  return Number(byBlock[blockIndex] || 0);
+}
+
+function buildMyTeamOOPIncrementSinglesBlock_(player, blockIndex) {
+  if (!player.assignedSinglesByBlock) player.assignedSinglesByBlock = {};
+  player.assignedSinglesByBlock[blockIndex] = buildMyTeamOOPSinglesCountInBlock_(player, blockIndex) + 1;
+}
+
+function buildMyTeamOOPIncrementDoublesBlock_(player, blockIndex) {
+  if (!player.assignedDoublesByBlock) player.assignedDoublesByBlock = {};
+  player.assignedDoublesByBlock[blockIndex] = buildMyTeamOOPDoublesCountInBlock_(player, blockIndex) + 1;
+}
+
+function getMyTeamOOPGameTemplateSheet_(ss) {
+  const exactMatch = ss.getSheetByName('Game Template');
+  if (exactMatch) return exactMatch;
+
+  return ss.getSheets().find(sheet =>
+    buildMyTeamOOPNormalizeName_(sheet.getName()) === 'game template'
+    || buildMyTeamOOPNormalizeName_(sheet.getName()) === 'gametemplate'
+  ) || null;
 }

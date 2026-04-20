@@ -13,9 +13,11 @@ function buildMyTeamPairings(frameCache) {
   const fixturesSheet = ss.getSheetByName('Fixtures');
   const paramsSheet = ss.getSheetByName('Parameters');
   const last3Sheet = ss.getSheetByName('Last3MatchForm');
+  const gameTemplate = getMyTeamOOPGameTemplateSheet_(ss);
   if (!fixturesSheet) { console.log('ERROR: Fixtures sheet not found'); return; }
   if (!paramsSheet) { console.log('ERROR: Parameters sheet not found'); return; }
   if (!last3Sheet) { console.log('ERROR: Last3MatchForm sheet not found'); return; }
+  if (!gameTemplate) { console.log('ERROR: Game Template sheet not found'); return; }
 
   const outName = 'MyTeamPairings';
   let out = ss.getSheetByName(outName);
@@ -92,10 +94,10 @@ function buildMyTeamPairings(frameCache) {
   const last3Headers = last3Sheet.getRange(6, 1, 1, Math.min(last3Sheet.getLastColumn(), 20)).getValues()[0];
   const last3HeaderMap = buildMyTeamOOPHeaderMap_(last3Headers);
   const playerPool = last3HeaderMap.player !== -1
-    ? buildMyTeamOOPVisiblePlayerPool_(last3Sheet, last3HeaderMap)
+    ? buildMyTeamOOPVisiblePlayerPool_(last3Sheet, last3HeaderMap, gameTemplate)
     : [];
   const selectedNames = new Set(playerPool.map(p => p.name));
-  console.log('Visible players from Last3MatchForm:', playerPool.map(p => p.name).join(', '));
+  console.log('Players from Game Template K2:K13:', playerPool.map(p => p.name).join(', '));
 
   console.log('frameCache provided:', !!frameCache, '| Cached match IDs:', frameCache ? Object.keys(frameCache).join(', ') : 'none');
 
